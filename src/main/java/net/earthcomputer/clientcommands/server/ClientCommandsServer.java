@@ -45,7 +45,7 @@ public class ClientCommandsServer implements ModInitializer {
             return;
         }
 
-        throw MUST_BE_INSTALLED_EXCEPTION.create();
+        return;
     }
 
     private enum OptInPayload implements CustomPacketPayload {
