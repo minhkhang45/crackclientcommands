@@ -25,21 +25,30 @@ public abstract sealed class MultiVersionCompat {
     public static final int V1_9 = 107;
     public static final int V1_11 = 315;
     public static final int V1_11_1 = 316;
+    public static final int V1_12 = 335;
     public static final int V1_13 = 393;
     public static final int V1_13_2 = 404;
     public static final int V1_14 = 477;
+    public static final int V1_14_1 = 480;
     public static final int V1_14_2 = 485;
     public static final int V1_15 = 573;
     public static final int V1_15_2 = 578;
     public static final int V1_16 = 735;
     public static final int V1_17 = 755;
+    public static final int V1_17_1 = 756;
     public static final int V1_18 = 757;
     public static final int V1_18_2 = 758;
+    public static final int V1_19 = 759;
+    public static final int V1_19_3 = 761;
+    public static final int V1_19_4 = 762;
     public static final int V1_20 = 763;
+    public static final int V1_20_5 = 766;
     public static final int V1_20_6 = 766;
     public static final int V1_21 = 767;
     public static final int V1_21_2 = 768;
     public static final int V1_21_9 = 773;
+    public static final int V1_21_11 = 774;
+    public static final int V26_3 = 777;
 
     public abstract int getProtocolVersion();
 
@@ -50,6 +59,11 @@ public abstract sealed class MultiVersionCompat {
     }
 
     public static final MultiVersionCompat INSTANCE = Util.make(() -> {
+        // the old server gametests connect to old versions through ViaFabricPlus, rather than simulating them
+        if (System.getProperty("fabric.client.gametest") != null && !FabricLoader.getInstance().isModLoaded("viafabricplus")) {
+            return new GameTestDebug();
+        }
+
         try {
             FabricLoader loader = FabricLoader.getInstance();
             if (loader.isModLoaded("viafabric")) {
@@ -64,6 +78,38 @@ public abstract sealed class MultiVersionCompat {
             return new None();
         }
     });
+
+    public static final class GameTestDebug extends MultiVersionCompat {
+        private int protocolVersion = SharedConstants.getProtocolVersion();
+        private String protocolName = SharedConstants.getCurrentVersion().name();
+
+        private GameTestDebug() {
+        }
+
+        public void setProtocolVersion(int protocolVersion, String protocolName) {
+            this.protocolVersion = protocolVersion;
+            this.protocolName = protocolName;
+        }
+
+        public void clearProtocolVersionOverride() {
+            this.protocolVersion = SharedConstants.getProtocolVersion();
+            this.protocolName = SharedConstants.getCurrentVersion().name();
+        }
+
+        public boolean hasProtocolVersionOverride() {
+            return protocolVersion != SharedConstants.getProtocolVersion();
+        }
+
+        @Override
+        public int getProtocolVersion() {
+            return protocolVersion;
+        }
+
+        @Override
+        public String getProtocolName() {
+            return protocolName;
+        }
+    }
 
     private static final class None extends MultiVersionCompat {
         @Override
@@ -185,27 +231,30 @@ public abstract sealed class MultiVersionCompat {
     }
 
     private static final class ViaFabricPlus extends AbstractViaVersion {
-        private final Method viaFabricPlusGetImpl;
+        private final Method viaFabricPlusApi;
         private final Method getTargetVersion;
+        private final Method getLimitations;
         private final Method olderThan;
         private final Method itemExistsInConnection;
         private final Object release1_7_2Version;
 
         private ViaFabricPlus() throws ReflectiveOperationException {
             Class<?> viaFabricPlus = Class.forName("com.viaversion.viafabricplus.ViaFabricPlus");
-            Class<?> viaFabricPlusBase = Class.forName("com.viaversion.viafabricplus.api.ViaFabricPlusBase");
+            Class<?> viaFabricPlusApiClass = Class.forName("com.viaversion.viafabricplus.api.ViaFabricPlusAPI");
+            Class<?> limitations = Class.forName("com.viaversion.viafabricplus.api.protocoltranslator.Limitations");
             Class<?> protocolVersion = Class.forName("com.viaversion.viaversion.api.protocol.version.ProtocolVersion");
-            viaFabricPlusGetImpl = viaFabricPlus.getMethod("getImpl");
-            getTargetVersion = viaFabricPlusBase.getMethod("getTargetVersion");
+            viaFabricPlusApi = viaFabricPlus.getMethod("api");
+            getTargetVersion = viaFabricPlusApiClass.getMethod("targetVersion");
+            getLimitations = viaFabricPlusApiClass.getMethod("limitations");
             olderThan = protocolVersion.getMethod("olderThan", protocolVersion);
-            itemExistsInConnection = viaFabricPlusBase.getMethod("itemExistsInConnection", Item.class);
+            itemExistsInConnection = limitations.getMethod("itemExistsInConnection", Item.class);
             release1_7_2Version = protocolVersion.getField("v1_7_2").get(null);
         }
 
         @Override
         public int getProtocolVersion() {
             try {
-                final boolean isOlderThan1_7_2 = (boolean) olderThan.invoke(getTargetVersion.invoke(getImpl()), release1_7_2Version);
+                final boolean isOlderThan1_7_2 = (boolean) olderThan.invoke(getTargetVersion.invoke(getApi()), release1_7_2Version);
                 if (isOlderThan1_7_2) {
                     return V1_7_2;
                 } else {
@@ -218,21 +267,21 @@ public abstract sealed class MultiVersionCompat {
 
         @Override
         protected Object getCurrentVersion() throws ReflectiveOperationException {
-            return getTargetVersion.invoke(getImpl());
+            return getTargetVersion.invoke(getApi());
         }
 
         @Override
         public boolean doesItemExist(Item item) {
             try {
-                return (Boolean) itemExistsInConnection.invoke(getImpl(), item);
+                return (Boolean) itemExistsInConnection.invoke(getLimitations.invoke(getApi()), item);
             } catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);
             }
         }
 
-        private Object getImpl() {
+        private Object getApi() {
             try {
-                return viaFabricPlusGetImpl.invoke(null);
+                return viaFabricPlusApi.invoke(null);
             } catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);
             }

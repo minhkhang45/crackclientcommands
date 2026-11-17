@@ -10,7 +10,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.EncoderException;
-import it.unimi.dsi.fastutil.ints.IntList;
 import net.earthcomputer.clientcommands.c2c.C2CPacketHandler;
 import net.earthcomputer.clientcommands.c2c.C2CPacketListener;
 import net.minecraft.client.Minecraft;
@@ -26,7 +25,6 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.phys.BlockHitResult;
 import org.apache.commons.io.function.IOBiConsumer;
 import org.apache.commons.io.function.IORunnable;
 import org.apache.commons.io.function.IOStream;
@@ -43,16 +41,12 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.security.PublicKey;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.BitSet;
-import java.util.Collection;
 import java.util.EnumSet;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -119,47 +113,6 @@ public class PacketDumper {
                 GSON.toJson(
                     codec.encodeStart(JsonOps.INSTANCE, value).getOrThrow(message -> new EncoderException("Failed to encode: " + message + " " + value)),
                     writer);
-            });
-        }
-
-        @Override
-        public <T> void writeCollection(Collection<T> collection, StreamEncoder<? super FriendlyByteBuf, T> encoder) {
-            dump("collection", () -> {
-                writer.name("size").value(collection.size());
-                writer.name("elements").beginArray();
-                for (final T element : collection) {
-                    dumpValue(element, encoder);
-                }
-                writer.endArray();
-            });
-        }
-
-        @Override
-        public void writeIntIdList(IntList intIdList) {
-            dump("intIdList", () -> {
-                writer.name("size").value(intIdList.size());
-                writer.name("elements").beginArray();
-                for (final int value : intIdList) {
-                    writer.value(value);
-                }
-                writer.endArray();
-            });
-        }
-
-        @Override
-        public <K, V> void writeMap(Map<K, V> map, StreamEncoder<? super FriendlyByteBuf, K> keyEncoder, StreamEncoder<? super FriendlyByteBuf, V> valueEncoder) {
-            dump("map", () -> {
-                writer.name("size").value(map.size());
-                writer.name("elements").beginArray();
-                for (final var entry : map.entrySet()) {
-                    writer.beginObject();
-                    writer.name("key");
-                    dumpValue(entry.getKey(), keyEncoder);
-                    writer.name("value");
-                    dumpValue(entry.getValue(), valueEncoder);
-                    writer.endObject();
-                }
-                writer.endArray();
             });
         }
 
@@ -311,6 +264,7 @@ public class PacketDumper {
         }
 
         @Override
+        @Deprecated
         public PacketDumpByteBuf writeEnum(Enum<?> value) {
             return dump("enum", () -> {
                 String className = value.getDeclaringClass().getName().replace('.', '/');
@@ -375,34 +329,6 @@ public class PacketDumper {
             dump("resourceKey", () -> writer
                 .name("registry").value(resourceKey.registry().toString())
                 .name("identifier").value(resourceKey.identifier().toString())
-            );
-        }
-
-        @Override
-        public void writeInstant(Instant instant) {
-            dumpAsString("instant", instant);
-        }
-
-        @Override
-        public PacketDumpByteBuf writePublicKey(PublicKey publicKey) {
-            return dump("publicKey", () -> writer
-                .name("encoded").value(Base64.getEncoder().encodeToString(publicKey.getEncoded()))
-            );
-        }
-
-        @Override
-        public void writeBlockHitResult(BlockHitResult result) {
-            dump("blockHitResult", () -> writer
-                .name("pos").beginObject()
-                .name("x").value(result.getBlockPos().getX())
-                .name("y").value(result.getBlockPos().getY())
-                .name("z").value(result.getBlockPos().getZ()).endObject()
-                .name("direction").value(result.getDirection().getSerializedName())
-                .name("offset").beginObject()
-                .name("x").value(result.getLocation().x - result.getBlockPos().getX())
-                .name("y").value(result.getLocation().y - result.getBlockPos().getY())
-                .name("z").value(result.getLocation().z - result.getBlockPos().getZ())
-                .name("isInside").value(result.isInside())
             );
         }
 

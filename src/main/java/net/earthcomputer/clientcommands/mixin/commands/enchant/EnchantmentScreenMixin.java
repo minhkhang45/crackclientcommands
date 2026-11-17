@@ -1,7 +1,6 @@
 package net.earthcomputer.clientcommands.mixin.commands.enchant;
 
 import net.earthcomputer.clientcommands.features.EnchantmentCracker;
-import net.earthcomputer.clientcommands.features.PlayerRandCracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
@@ -14,7 +13,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(EnchantmentScreen.class)
 public abstract class EnchantmentScreenMixin extends AbstractContainerScreen<EnchantmentMenu> {
@@ -23,22 +21,17 @@ public abstract class EnchantmentScreenMixin extends AbstractContainerScreen<Enc
     }
 
     @Inject(method = "extractRenderState", at = @At("TAIL"))
-    public void postExtract(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float ignored, CallbackInfo ci) {
+    private void postExtract(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float ignored, CallbackInfo ci) {
         if (EnchantmentCracker.isEnchantingPredictionEnabled()) {
-            EnchantmentCracker.extractEnchantmentGUIOverlay(graphics);
+            EnchantmentCracker.extractEnchantmentGUIOverlay(graphics, this.menu);
         }
-    }
-
-    @Inject(method = "mouseClicked", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;handleInventoryButtonClick(II)V"))
-    public void onItemEnchanted(CallbackInfoReturnable<Boolean> ci) {
-        PlayerRandCracker.onEnchantedItem();
     }
 
     @Inject(method = "init", at = @At("TAIL"))
     private void onInit(CallbackInfo ci) {
         if (EnchantmentCracker.isEnchantingPredictionEnabled()) {
-            addRenderableWidget(Button.builder(Component.translatable("enchCrack.addInfo"), button -> {
-                EnchantmentCracker.addEnchantmentSeedInfo(Minecraft.getInstance().level, getMenu());
+            addRenderableWidget(Button.builder(Component.translatable("enchCrack.addInfo"), _ -> {
+                EnchantmentCracker.addEnchantmentSeedInfo(Minecraft.getInstance().level, this.menu);
             }).pos(width - 150, 0).build());
         }
     }

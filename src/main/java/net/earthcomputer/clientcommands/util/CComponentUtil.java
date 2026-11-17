@@ -42,6 +42,7 @@ import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
+import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -74,7 +75,11 @@ public final class CComponentUtil {
     }
 
     public static Component getGlowButtonTextComponent(Entity entity) {
-        return getCommandTextComponent(Component.translatable("commands.client.glow"), "/cglow entities " + entity.getStringUUID());
+        return getGlowButtonTextComponent(entity.getUUID());
+    }
+
+    public static Component getGlowButtonTextComponent(UUID uuid) {
+        return getCommandTextComponent(Component.translatable("commands.client.glow"), "/cglow entities " + uuid);
     }
 
     public static Component getCommandTextComponent(@Translatable String translationKey, String command) {
@@ -96,6 +101,17 @@ public final class CComponentUtil {
         UUID callbackId = UUID.randomUUID();
         callbacks.put(callbackId, new Callback(callback, System.nanoTime() + timeoutNanos));
         return new ClickEvent.RunCommand("/ccallback " + callbackId);
+    }
+
+    public static Component getLinkTextComponent(@Translatable String translationKey, String url) {
+        return getLinkTextComponent(Component.translatable(translationKey), url);
+    }
+
+    public static Component getLinkTextComponent(MutableComponent component, String url) {
+        return component.withStyle(style -> style.applyFormat(ChatFormatting.UNDERLINE)
+            .withColor(ChatFormatting.GREEN)
+            .withClickEvent(new ClickEvent.OpenUrl(URI.create(url)))
+            .withHoverEvent(new HoverEvent.ShowText(Component.literal(url))));
     }
 
     public static boolean runCallback(UUID callbackId) {
